@@ -1,14 +1,70 @@
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, useGLTF, PerspectiveCamera } from "@react-three/drei";
 import { useAppStore } from "../store/appStore";
 import { Slider } from "../components/ui/slider";
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import * as THREE from "three";
+import {
+  createMarbleTexture,
+  createMetalTexture,
+  createWoodTexture,
+} from "../utils/texture";
 
-const Model: React.FC<{ url: string; scale: number }> = ({ url, scale }) => {
+const textures = [
+  { name: "Default", create: () => null },
+  { name: "Wood", create: createWoodTexture },
+  { name: "Metal", create: createMetalTexture },
+  { name: "Marble", create: createMarbleTexture },
+];
+
+const Model: React.FC<{
+  url: string;
+  scale: number;
+  texture: THREE.Texture | null;
+}> = ({ url, scale, texture }) => {
   const { scene } = useGLTF(url);
+  const [originalMaterials, setOriginalMaterials] = useState<
+    Map<THREE.Mesh, THREE.Material>
+  >(new Map());
+
+  useEffect(() => {
+    if (originalMaterials.size === 0) {
+      const materials = new Map();
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          materials.set(child, child.material.clone());
+        }
+      });
+      setOriginalMaterials(materials);
+    }
+
+    scene.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        if (texture) {
+          child.material.map = texture;
+        } else {
+          const originalMaterial = originalMaterials.get(child);
+          if (originalMaterial) {
+            child.material = originalMaterial.clone();
+          } else {
+            child.material.map = null;
+          }
+        }
+        child.material.needsUpdate = true;
+      }
+    });
+  }, [scene, texture, originalMaterials]);
+
   return <primitive object={scene} scale={scale} />;
 };
 
@@ -25,6 +81,12 @@ export const ModelView: React.FC = () => {
   const model = models.find((m) => m.id === Number(id));
   const [scale, setScale] = useState(1.5);
   const [autoRotate, setAutoRotate] = useState(true);
+  const [selectedTexture, setSelectedTexture] = useState<string>("Default");
+
+  const texture = useMemo(() => {
+    const textureObj = textures.find((t) => t.name === selectedTexture);
+    return textureObj ? textureObj.create() : null;
+  }, [selectedTexture]);
 
   if (!model) {
     return (
@@ -50,7 +112,7 @@ export const ModelView: React.FC = () => {
               <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
               <pointLight position={[-10, -10, -10]} />
               <Suspense fallback={<LoadingPlaceholder />}>
-                <Model url={model.glb_url} scale={scale} />
+                <Model url={model.glb_url} scale={scale} texture={texture} />
               </Suspense>
               <OrbitControls autoRotate={autoRotate} />
             </Canvas>
@@ -76,6 +138,26 @@ export const ModelView: React.FC = () => {
               >
                 {autoRotate ? "Stop Rotation" : "Start Rotation"}
               </Button>
+              <div className="mt-4">
+                <label
+                  htmlFor="texture-select"
+                  className="text-sm font-medium mb-2 block"
+                >
+                  Select Texture:
+                </label>
+                <Select onValueChange={(value) => setSelectedTexture(value)}>
+                  <SelectTrigger id="texture-select">
+                    <SelectValue placeholder="Choose a texture" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {textures.map((texture) => (
+                      <SelectItem key={texture.name} value={texture.name}>
+                        {texture.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
@@ -95,6 +177,7 @@ export const ModelView: React.FC = () => {
               <li>Scroll to zoom in/out</li>
               <li>Use the slider to adjust model size</li>
               <li>Toggle auto-rotation with the button</li>
+              <li>Select a texture from the dropdown menu</li>
             </ul>
           </div>
         </div>

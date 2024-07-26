@@ -1,6 +1,6 @@
 import React, { Suspense, useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Canvas, useLoader } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF, PerspectiveCamera } from "@react-three/drei";
 import { useAppStore } from "../store/appStore";
 import { Slider } from "../components/ui/slider";

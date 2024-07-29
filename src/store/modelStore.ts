@@ -1,6 +1,8 @@
 import create from "zustand";
 import * as THREE from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter.js";
+
 import {
   createMarbleTexture,
   createMetalTexture,
@@ -84,7 +86,15 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
         { binary: false }
       );
     } else if (format === "obj") {
-      console.warn("OBJ export not implemented yet");
+      const exporter = new OBJExporter();
+      const result = exporter.parse(clonedScene);
+      const blob = new Blob([result], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "model.obj";
+      link.click();
+      URL.revokeObjectURL(url);
     }
   },
   tilt: { x: 0, y: 0, z: 0 },

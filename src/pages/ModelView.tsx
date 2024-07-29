@@ -28,13 +28,18 @@ const Model: React.FC<{ url: string }> = ({ url }) => {
     mirrorY,
     mirrorZ,
     updateTransform,
+    position,
+    setPosition,
+    isDragging,
+    setIsDragging,
   } = useModelViewStore();
   const [originalMaterials, setOriginalMaterials] = useState<
     Map<THREE.Mesh, THREE.Material>
   >(new Map());
 
-  const { scene: threeScene } = useThree();
+  const { scene: threeScene, camera, gl } = useThree();
   const modelRef = useRef<THREE.Group>();
+  const dragStartPosition = useRef(new THREE.Vector3());
 
   useEffect(() => {
     setScene(threeScene);
@@ -75,13 +80,63 @@ const Model: React.FC<{ url: string }> = ({ url }) => {
       modelRef.current.scale.x = mirrorX ? -scale : scale;
       modelRef.current.scale.y = mirrorY ? -scale : scale;
       modelRef.current.scale.z = mirrorZ ? -scale : scale;
+      modelRef.current.position.copy(position);
 
       // Update transform
       updateTransform(modelRef.current.position, modelRef.current.rotation);
     }
   });
 
-  return <primitive ref={modelRef} object={scene} scale={scale} />;
+  const onPointerDown = (event: THREE.Event) => {
+    console.log("lwq - onPointerDown, event: ", event);
+    event.stopPropagation();
+    setIsDragging(true);
+    dragStartPosition.current.copy(position);
+  };
+
+  const onPointerUp = () => {
+    console.log("lwq - onPointerUp");
+    setIsDragging(false);
+  };
+
+  const onPointerMove = (event: THREE.Event) => {
+    console.log("lwq - onPointerMove, event: ", event);
+    if (isDragging && modelRef.current) {
+      const { clientX, clientY } = event as any;
+      const vec = new THREE.Vector3();
+      const pos = new THREE.Vector3();
+
+      vec.set(
+        (clientX / gl.domElement.clientWidth) * 2 - 1,
+        -(clientY / gl.domElement.clientHeight) * 2 + 1,
+        0.5
+      );
+
+      vec.unproject(camera);
+      vec.sub(camera.position).normalize();
+      const distance = -camera.position.z / vec.z;
+      pos.copy(camera.position).add(vec.multiplyScalar(distance));
+
+      const newPosition = new THREE.Vector3(
+        dragStartPosition.current.x + (pos.x - dragStartPosition.current.x),
+        dragStartPosition.current.y + (pos.y - dragStartPosition.current.y),
+        position.z
+      );
+
+      setPosition(newPosition);
+    }
+  };
+
+  return (
+    <primitive
+      ref={modelRef}
+      object={scene}
+      scale={scale}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerMove={onPointerMove}
+    />
+  );
 };
 
 const LoadingPlaceholder: React.FC = () => (
@@ -138,6 +193,7 @@ export const ModelView: React.FC = () => {
     mirrorZ,
     toggleMirror,
     resetTransforms,
+    isDragging,
   } = useModelViewStore();
 
   if (!model) {
@@ -166,7 +222,12 @@ export const ModelView: React.FC = () => {
               <Suspense fallback={<LoadingPlaceholder />}>
                 <Model url={model.glb_url} />
               </Suspense>
-              <OrbitControls autoRotate={autoRotate} />
+              <OrbitControls
+                autoRotate={autoRotate}
+                enableRotate={!isDragging}
+                enablePan={false}
+                enableZoom={true}
+              />
             </Canvas>
           </div>
         </div>

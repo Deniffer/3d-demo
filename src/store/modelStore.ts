@@ -34,8 +34,11 @@ type ModelViewStore = {
   toggleMirror: (axis: "x" | "y" | "z") => void;
   resetTransforms: () => void;
   position: THREE.Vector3;
+  setPosition: (position: THREE.Vector3) => void;
   rotation: THREE.Euler;
   updateTransform: (position: THREE.Vector3, rotation: THREE.Euler) => void;
+  isDragging: boolean;
+  setIsDragging: (isDragging: boolean) => void;
 };
 
 export const useModelViewStore = create<ModelViewStore>((set, get) => ({
@@ -90,6 +93,8 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
   mirrorY: false,
   mirrorZ: false,
   position: new THREE.Vector3(),
+  setPosition: (position: THREE.Vector3) => set({ position }),
+
   rotation: new THREE.Euler(),
   updateTransform: (position, rotation) => set({ position, rotation }),
 
@@ -108,4 +113,6 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
       position: new THREE.Vector3(),
       rotation: new THREE.Euler(),
     }),
+  isDragging: false,
+  setIsDragging: (isDragging) => set({ isDragging }),
 }));

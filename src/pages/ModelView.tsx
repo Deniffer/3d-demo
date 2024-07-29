@@ -36,10 +36,8 @@ export const ModelView: React.FC = () => {
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="w-full h-[600px] relative">
             <Canvas>
-              <PerspectiveCamera makeDefault position={[0, 0, 5]} />
-              <ambientLight intensity={0.5} />
-              <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
-              <pointLight position={[-10, -10, -10]} />
+              <PerspectiveCamera makeDefault position={[0, 0, 2]} />
+              <ambientLight intensity={2} />
               <Suspense fallback={<LoadingPlaceholder />}>
                 <Model url={model.glb_url} />
               </Suspense>

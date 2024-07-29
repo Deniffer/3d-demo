@@ -33,6 +33,9 @@ type ModelViewStore = {
   mirrorZ: boolean;
   toggleMirror: (axis: "x" | "y" | "z") => void;
   resetTransforms: () => void;
+  position: THREE.Vector3;
+  rotation: THREE.Euler;
+  updateTransform: (position: THREE.Vector3, rotation: THREE.Euler) => void;
 };
 
 export const useModelViewStore = create<ModelViewStore>((set, get) => ({
@@ -86,6 +89,10 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
   mirrorX: false,
   mirrorY: false,
   mirrorZ: false,
+  position: new THREE.Vector3(),
+  rotation: new THREE.Euler(),
+  updateTransform: (position, rotation) => set({ position, rotation }),
+
   toggleMirror: (axis) =>
     set((state) => ({
       [`mirror${axis.toUpperCase()}`]: !state[`mirror${axis.toUpperCase()}`],
@@ -98,5 +105,7 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
       mirrorX: false,
       mirrorY: false,
       mirrorZ: false,
+      position: new THREE.Vector3(),
+      rotation: new THREE.Euler(),
     }),
 }));

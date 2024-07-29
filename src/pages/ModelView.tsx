@@ -18,8 +18,17 @@ import * as THREE from "three";
 
 const Model: React.FC<{ url: string }> = ({ url }) => {
   const { scene } = useGLTF(url);
-  const { scale, texture, setScene, tiltX, tiltY, mirrorX, mirrorY, mirrorZ } =
-    useModelViewStore();
+  const {
+    scale,
+    texture,
+    setScene,
+    tiltX,
+    tiltY,
+    mirrorX,
+    mirrorY,
+    mirrorZ,
+    updateTransform,
+  } = useModelViewStore();
   const [originalMaterials, setOriginalMaterials] = useState<
     Map<THREE.Mesh, THREE.Material>
   >(new Map());
@@ -66,6 +75,9 @@ const Model: React.FC<{ url: string }> = ({ url }) => {
       modelRef.current.scale.x = mirrorX ? -scale : scale;
       modelRef.current.scale.y = mirrorY ? -scale : scale;
       modelRef.current.scale.z = mirrorZ ? -scale : scale;
+
+      // Update transform
+      updateTransform(modelRef.current.position, modelRef.current.rotation);
     }
   });
 
@@ -78,6 +90,33 @@ const LoadingPlaceholder: React.FC = () => (
     <meshStandardMaterial color="skyblue" wireframe />
   </mesh>
 );
+
+const TransformDisplay: React.FC = () => {
+  const { position, rotation, scale } = useModelViewStore();
+
+  return (
+    <div className="bg-gray-100 p-4 rounded-lg mt-4">
+      <h3 className="text-lg font-semibold mb-2">Transform Parameters</h3>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <p>Position:</p>
+          <p>X: {position.x.toFixed(2)}</p>
+          <p>Y: {position.y.toFixed(2)}</p>
+          <p>Z: {position.z.toFixed(2)}</p>
+        </div>
+        <div>
+          <p>Rotation (deg):</p>
+          <p>X: {THREE.MathUtils.radToDeg(rotation.x).toFixed(2)}</p>
+          <p>Y: {THREE.MathUtils.radToDeg(rotation.y).toFixed(2)}</p>
+          <p>Z: {THREE.MathUtils.radToDeg(rotation.z).toFixed(2)}</p>
+        </div>
+        <div className="col-span-2">
+          <p>Scale: {scale.toFixed(2)}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const ModelView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -133,7 +172,9 @@ export const ModelView: React.FC = () => {
         </div>
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-bold mb-4">Model Controls</h2>
+
           <div className="space-y-6">
+            <TransformDisplay />
             <div>
               <label className="block text-sm font-medium mb-2">Scale</label>
               <Slider

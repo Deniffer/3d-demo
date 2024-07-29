@@ -98,9 +98,9 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
   rotation: new THREE.Euler(),
   updateTransform: (position, rotation) => set({ position, rotation }),
 
-  toggleMirror: (axis) =>
+  toggleMirror: (axis: 'x' | 'y' | 'z') =>
     set((state) => ({
-      [`mirror${axis.toUpperCase()}`]: !state[`mirror${axis.toUpperCase()}`],
+      [`mirror${axis.toUpperCase()}`]: !state[`mirror${axis.toUpperCase()}` as keyof typeof state],
     })),
   resetTransforms: () =>
     set({

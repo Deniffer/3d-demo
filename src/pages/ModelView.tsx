@@ -88,8 +88,7 @@ const Model: React.FC<{ url: string }> = ({ url }) => {
   });
 
   const onPointerDown = (event: THREE.Event) => {
-    console.log("lwq - onPointerDown, event: ", event);
-    event.stopPropagation();
+    (event as unknown as PointerEvent).stopPropagation();
     setIsDragging(true);
     dragStartPosition.current.copy(position);
   };

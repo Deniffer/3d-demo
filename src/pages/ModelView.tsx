@@ -1,8 +1,9 @@
-import React, { Suspense, useState, useEffect, useMemo } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF, PerspectiveCamera } from "@react-three/drei";
 import { useAppStore } from "../store/appStore";
+import { useModelViewStore } from "../store/modelStore";
 import { Slider } from "../components/ui/slider";
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -14,28 +15,19 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import * as THREE from "three";
-import {
-  createMarbleTexture,
-  createMetalTexture,
-  createWoodTexture,
-} from "../utils/texture";
 
-const textures = [
-  { name: "Default", create: () => null },
-  { name: "Wood", create: createWoodTexture },
-  { name: "Metal", create: createMetalTexture },
-  { name: "Marble", create: createMarbleTexture },
-];
-
-const Model: React.FC<{
-  url: string;
-  scale: number;
-  texture: THREE.Texture | null;
-}> = ({ url, scale, texture }) => {
+const Model: React.FC<{ url: string }> = ({ url }) => {
   const { scene } = useGLTF(url);
+  const { scale, texture, setScene } = useModelViewStore();
   const [originalMaterials, setOriginalMaterials] = useState<
     Map<THREE.Mesh, THREE.Material>
   >(new Map());
+
+  const { scene: threeScene } = useThree();
+
+  useEffect(() => {
+    setScene(threeScene);
+  }, [threeScene, setScene]);
 
   useEffect(() => {
     if (originalMaterials.size === 0) {
@@ -79,14 +71,15 @@ export const ModelView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const models = useAppStore((state) => state.models);
   const model = models.find((m) => m.id === Number(id));
-  const [scale, setScale] = useState(1.5);
-  const [autoRotate, setAutoRotate] = useState(true);
-  const [selectedTexture, setSelectedTexture] = useState<string>("Default");
-
-  const texture = useMemo(() => {
-    const textureObj = textures.find((t) => t.name === selectedTexture);
-    return textureObj ? textureObj.create() : null;
-  }, [selectedTexture]);
+  const {
+    scale,
+    setScale,
+    autoRotate,
+    toggleAutoRotate,
+    selectedTexture,
+    setSelectedTexture,
+    exportModel,
+  } = useModelViewStore();
 
   if (!model) {
     return (
@@ -112,7 +105,7 @@ export const ModelView: React.FC = () => {
               <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
               <pointLight position={[-10, -10, -10]} />
               <Suspense fallback={<LoadingPlaceholder />}>
-                <Model url={model.glb_url} scale={scale} texture={texture} />
+                <Model url={model.glb_url} />
               </Suspense>
               <OrbitControls autoRotate={autoRotate} />
             </Canvas>
@@ -132,7 +125,7 @@ export const ModelView: React.FC = () => {
                 onValueChange={([value]) => setScale(value)}
               />
               <Button
-                onClick={() => setAutoRotate(!autoRotate)}
+                onClick={toggleAutoRotate}
                 className="mt-2 w-full"
                 variant={autoRotate ? "default" : "outline"}
               >
@@ -145,18 +138,26 @@ export const ModelView: React.FC = () => {
                 >
                   Select Texture:
                 </label>
-                <Select onValueChange={(value) => setSelectedTexture(value)}>
+                <Select onValueChange={setSelectedTexture}>
                   <SelectTrigger id="texture-select">
                     <SelectValue placeholder="Choose a texture" />
                   </SelectTrigger>
                   <SelectContent>
-                    {textures.map((texture) => (
-                      <SelectItem key={texture.name} value={texture.name}>
-                        {texture.name}
+                    {["Default", "Wood", "Metal", "Marble"].map((texture) => (
+                      <SelectItem key={texture} value={texture}>
+                        {texture}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="mt-4 flex space-x-2">
+                <Button onClick={() => exportModel("gltf")} className="flex-1">
+                  Export as GLTF
+                </Button>
+                <Button onClick={() => exportModel("obj")} className="flex-1">
+                  Export as OBJ
+                </Button>
               </div>
             </div>
           </div>

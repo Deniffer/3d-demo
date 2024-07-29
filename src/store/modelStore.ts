@@ -7,39 +7,40 @@ import {
   createWoodTexture,
 } from "../utils/texture";
 
-const textures = [
-  { name: "Default", create: () => null },
-  { name: "Wood", create: createWoodTexture },
-  { name: "Metal", create: createMetalTexture },
-  { name: "Marble", create: createMarbleTexture },
-];
+// Define texture types
+type TextureType = "Default" | "Wood" | "Metal" | "Marble";
 
-type ModelViewStore = {
+// Define texture creators
+const textureCreators: Record<TextureType, () => THREE.Texture | null> = {
+  Default: () => null,
+  Wood: createWoodTexture,
+  Metal: createMetalTexture,
+  Marble: createMarbleTexture,
+};
+
+// Define ModelViewStore type
+interface ModelViewStore {
   scale: number;
   setScale: (scale: number) => void;
   autoRotate: boolean;
   toggleAutoRotate: () => void;
-  selectedTexture: string;
-  setSelectedTexture: (texture: string) => void;
+  selectedTexture: TextureType;
+  setSelectedTexture: (texture: TextureType) => void;
   texture: THREE.Texture | null;
   scene: THREE.Scene | null;
   setScene: (scene: THREE.Scene) => void;
   exportModel: (format: "obj" | "gltf") => void;
-  tiltX: number;
-  tiltY: number;
-  setTilt: (x: number, y: number) => void;
-  mirrorX: boolean;
-  mirrorY: boolean;
-  mirrorZ: boolean;
+  tilt: { x: number; y: number; z: number };
+  setTilt: (x: number, y: number, z: number) => void;
+  mirror: { x: boolean; y: boolean; z: boolean };
   toggleMirror: (axis: "x" | "y" | "z") => void;
   resetTransforms: () => void;
   position: THREE.Vector3;
-  setPosition: (position: THREE.Vector3) => void;
   rotation: THREE.Euler;
   updateTransform: (position: THREE.Vector3, rotation: THREE.Euler) => void;
   isDragging: boolean;
   setIsDragging: (isDragging: boolean) => void;
-};
+}
 
 export const useModelViewStore = create<ModelViewStore>((set, get) => ({
   scale: 1.5,
@@ -48,9 +49,10 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
   toggleAutoRotate: () => set((state) => ({ autoRotate: !state.autoRotate })),
   selectedTexture: "Default",
   setSelectedTexture: (texture) => {
-    set({ selectedTexture: texture });
-    const textureObj = textures.find((t) => t.name === texture);
-    set({ texture: textureObj ? textureObj.create() : null });
+    set({
+      selectedTexture: texture,
+      texture: textureCreators[texture](),
+    });
   },
   texture: null,
   scene: null,
@@ -60,7 +62,7 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
     if (!scene) return;
 
     const clonedScene = scene.clone();
-    clonedScene.scale.set(scale, scale, scale);
+    clonedScene.scale.setScalar(scale);
 
     if (format === "gltf") {
       const exporter = new GLTFExporter();
@@ -82,36 +84,27 @@ export const useModelViewStore = create<ModelViewStore>((set, get) => ({
         { binary: false }
       );
     } else if (format === "obj") {
-      // For OBJ export, you would need to implement or use a separate OBJ exporter
       console.warn("OBJ export not implemented yet");
     }
   },
-  tiltX: 0,
-  tiltY: 0,
-  setTilt: (x, y) => set({ tiltX: x, tiltY: y }),
-  mirrorX: false,
-  mirrorY: false,
-  mirrorZ: false,
+  tilt: { x: 0, y: 0, z: 0 },
+  setTilt: (x, y, z) => set({ tilt: { x, y, z } }),
+  mirror: { x: false, y: false, z: false },
+  toggleMirror: (axis) =>
+    set((state) => ({
+      mirror: { ...state.mirror, [axis]: !state.mirror[axis] },
+    })),
   position: new THREE.Vector3(),
-  setPosition: (position: THREE.Vector3) => set({ position }),
-
   rotation: new THREE.Euler(),
   updateTransform: (position, rotation) => set({ position, rotation }),
-
-  toggleMirror: (axis: 'x' | 'y' | 'z') =>
-    set((state) => ({
-      [`mirror${axis.toUpperCase()}`]: !state[`mirror${axis.toUpperCase()}` as keyof typeof state],
-    })),
   resetTransforms: () =>
     set({
       scale: 1.5,
-      tiltX: 0,
-      tiltY: 0,
-      mirrorX: false,
-      mirrorY: false,
-      mirrorZ: false,
+      tilt: { x: 0, y: 0, z: 0 },
+      mirror: { x: false, y: false, z: false },
       position: new THREE.Vector3(),
       rotation: new THREE.Euler(),
+      isDragging: false,
     }),
   isDragging: false,
   setIsDragging: (isDragging) => set({ isDragging }),

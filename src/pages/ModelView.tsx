@@ -1,6 +1,6 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF, PerspectiveCamera } from "@react-three/drei";
 import { useAppStore } from "../store/appStore";
 import { useModelViewStore } from "../store/modelStore";
@@ -18,12 +18,14 @@ import * as THREE from "three";
 
 const Model: React.FC<{ url: string }> = ({ url }) => {
   const { scene } = useGLTF(url);
-  const { scale, texture, setScene } = useModelViewStore();
+  const { scale, texture, setScene, tiltX, tiltY, mirrorX, mirrorY, mirrorZ } =
+    useModelViewStore();
   const [originalMaterials, setOriginalMaterials] = useState<
     Map<THREE.Mesh, THREE.Material>
   >(new Map());
 
   const { scene: threeScene } = useThree();
+  const modelRef = useRef<THREE.Group>();
 
   useEffect(() => {
     setScene(threeScene);
@@ -57,7 +59,17 @@ const Model: React.FC<{ url: string }> = ({ url }) => {
     });
   }, [scene, texture, originalMaterials]);
 
-  return <primitive object={scene} scale={scale} />;
+  useFrame(() => {
+    if (modelRef.current) {
+      modelRef.current.rotation.x = THREE.MathUtils.degToRad(tiltX);
+      modelRef.current.rotation.y = THREE.MathUtils.degToRad(tiltY);
+      modelRef.current.scale.x = mirrorX ? -scale : scale;
+      modelRef.current.scale.y = mirrorY ? -scale : scale;
+      modelRef.current.scale.z = mirrorZ ? -scale : scale;
+    }
+  });
+
+  return <primitive ref={modelRef} object={scene} scale={scale} />;
 };
 
 const LoadingPlaceholder: React.FC = () => (
@@ -76,9 +88,17 @@ export const ModelView: React.FC = () => {
     setScale,
     autoRotate,
     toggleAutoRotate,
-    selectedTexture,
+
     setSelectedTexture,
     exportModel,
+    tiltX,
+    tiltY,
+    setTilt,
+    mirrorX,
+    mirrorY,
+    mirrorZ,
+    toggleMirror,
+    resetTransforms,
   } = useModelViewStore();
 
   if (!model) {
@@ -109,77 +129,93 @@ export const ModelView: React.FC = () => {
               </Suspense>
               <OrbitControls autoRotate={autoRotate} />
             </Canvas>
-            <div className="absolute bottom-4 left-4 right-4 bg-white bg-opacity-75 p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <label htmlFor="scale-slider" className="text-sm font-medium">
-                  Model Size:
-                </label>
-                <span className="text-sm">{scale.toFixed(1)}x</span>
-              </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-bold mb-4">Model Controls</h2>
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium mb-2">Scale</label>
               <Slider
-                id="scale-slider"
                 min={0.5}
                 max={3}
                 step={0.1}
                 value={[scale]}
                 onValueChange={([value]) => setScale(value)}
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Tilt X</label>
+              <Slider
+                min={-180}
+                max={180}
+                step={1}
+                value={[tiltX]}
+                onValueChange={([value]) => setTilt(value, tiltY)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Tilt Y</label>
+              <Slider
+                min={-180}
+                max={180}
+                step={1}
+                value={[tiltY]}
+                onValueChange={([value]) => setTilt(tiltX, value)}
+              />
+            </div>
+            <div className="flex space-x-4">
+              <Button
+                onClick={() => toggleMirror("x")}
+                variant={mirrorX ? "default" : "outline"}
+              >
+                Mirror X
+              </Button>
+              <Button
+                onClick={() => toggleMirror("y")}
+                variant={mirrorY ? "default" : "outline"}
+              >
+                Mirror Y
+              </Button>
+              <Button
+                onClick={() => toggleMirror("z")}
+                variant={mirrorZ ? "default" : "outline"}
+              >
+                Mirror Z
+              </Button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Texture</label>
+              <Select onValueChange={setSelectedTexture}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a texture" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Default", "Wood", "Metal", "Marble"].map((texture) => (
+                    <SelectItem key={texture} value={texture}>
+                      {texture}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex space-x-4">
               <Button
                 onClick={toggleAutoRotate}
-                className="mt-2 w-full"
                 variant={autoRotate ? "default" : "outline"}
               >
                 {autoRotate ? "Stop Rotation" : "Start Rotation"}
               </Button>
-              <div className="mt-4">
-                <label
-                  htmlFor="texture-select"
-                  className="text-sm font-medium mb-2 block"
-                >
-                  Select Texture:
-                </label>
-                <Select onValueChange={setSelectedTexture}>
-                  <SelectTrigger id="texture-select">
-                    <SelectValue placeholder="Choose a texture" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["Default", "Wood", "Metal", "Marble"].map((texture) => (
-                      <SelectItem key={texture} value={texture}>
-                        {texture}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="mt-4 flex space-x-2">
-                <Button onClick={() => exportModel("gltf")} className="flex-1">
-                  Export as GLTF
-                </Button>
-                <Button onClick={() => exportModel("obj")} className="flex-1">
-                  Export as OBJ
-                </Button>
-              </div>
+              <Button onClick={resetTransforms}>Reset Transforms</Button>
             </div>
-          </div>
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold mb-4">{model.prompt}</h1>
-          <p className="text-gray-600 mb-2">Type: {model.type}</p>
-          <p className="text-gray-600 mb-2">Task ID: {model.task_id}</p>
-          {model.draft_model_id && (
-            <p className="text-gray-600 mb-2">
-              Draft Model ID: {model.draft_model_id}
-            </p>
-          )}
-          <div className="mt-6">
-            <h2 className="text-xl font-semibold mb-2">Controls:</h2>
-            <ul className="list-disc list-inside text-gray-700">
-              <li>Click and drag to rotate the model</li>
-              <li>Scroll to zoom in/out</li>
-              <li>Use the slider to adjust model size</li>
-              <li>Toggle auto-rotation with the button</li>
-              <li>Select a texture from the dropdown menu</li>
-            </ul>
+            <div className="flex space-x-4">
+              <Button onClick={() => exportModel("gltf")} className="flex-1">
+                Export as GLTF
+              </Button>
+              <Button onClick={() => exportModel("obj")} className="flex-1">
+                Export as OBJ
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -15,7 +15,6 @@ export const ModelView: React.FC = () => {
   const models = useAppStore((state) => state.models);
   const model = models.find((m) => m.id === Number(id));
   const autoRotate = useModelViewStore((state) => state.autoRotate);
-  // const isDragging = useModelViewStore((state) => state.isDragging);
 
   if (!model) {
     return (
